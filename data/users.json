@@ -1,0 +1,33 @@
+{
+    "1234": {
+        "student_id": "1234",
+        "fullname": "aaron",
+        "email": "aaron@gmail.com",
+        "password": "$2y$10$moZsWi40j43ea8wuKqraJ.8SCS\/iMF0jwdi7JWzW.XEpVahH4BHqy"
+    },
+    "2025-2-012345": {
+        "student_id": "2025-2-012345",
+        "fullname": "Aaron Pogi",
+        "email": "acbalba@kld.edu.ph",
+        "password": "$2y$10$gbA\/GTxGJ6ehGjnNsbB06uXD1c\/4l5GqaZulCRElI8KHll8P2t9.m"
+    },
+    "2025-2-000049": {
+        "student_id": "2025-2-000049",
+        "fullname": "Sai Bardo",
+        "email": "ir@kld.edu.ph",
+        "password": "$2y$10$v\/b.s7aDUf7U2lLA\/N\/ejuzg35A.MysdAuZCOwLOFtMnDm7rAaIbG"
+    },
+    "2025-2-000037": {
+        "student_id": "2025-2-000037",
+        "fullname": "Jamyl Jamyl",
+        "email": "jam@kld.edu.ph",
+        "password": "$2y$10$FEyxDHy6c.kV\/r9\/rDcM9.fBS66nprHUy17k2lG2W9GkBcJu2KovC"
+    },
+    "admin001": {
+        "student_id": "ADMIN001",
+        "fullname": "AARON - ADMIN",
+        "email": "acbalba@admin.kld.edu.ph",
+        "password": "$2y$10$ehZBIm78yOpCjMVx80xtlO2QZr.nbx\/iXGGarx0aC0eLOAciVXMxe",
+        "role": "admin"
+    }
+}

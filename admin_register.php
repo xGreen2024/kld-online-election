@@ -1,0 +1,93 @@
+<?php
+require_once __DIR__ . '/functions.php';
+if (is_logged_in()) redirect(home_for_role());
+
+$errors = [];
+$old = ['fullname' => '', 'student_id' => '', 'email' => ''];
+
+if (is_post()) {
+    csrf_check();
+    $old = ['fullname' => post('fullname'), 'student_id' => post('student_id'), 'email' => post('email')];
+    $pass    = post('password', false);
+    $confirm = post('confirm_password', false);
+    $code    = post('admin_code', false);
+
+    if ($old['fullname'] === '' || mb_strlen($old['fullname']) > 100) $errors[] = 'Please enter your full name.';
+    if (!preg_match('/^[A-Za-z0-9-]{3,20}$/', $old['student_id'])) $errors[] = 'Admin ID may only contain letters, numbers and dashes (3-20 characters).';
+    if (!filter_var($old['email'], FILTER_VALIDATE_EMAIL)) $errors[] = 'Please enter a valid email address.';
+    if (strlen($pass) < 8) $errors[] = 'Password must be at least 8 characters.';
+    if ($pass !== $confirm) $errors[] = 'The two passwords do not match.';
+    if (!hash_equals(ADMIN_REGISTER_CODE, $code)) $errors[] = 'Invalid admin registration code.';
+
+    if (!$errors) {
+        try {
+            db()->prepare('INSERT INTO users (student_id, fullname, email, password, role, email_verified) VALUES (?, ?, ?, ?, ?, 1)')
+                ->execute([$old['student_id'], $old['fullname'], $old['email'], password_hash($pass, PASSWORD_DEFAULT), 'admin']);
+            log_action('admin_created', 'New admin account: ' . $old['student_id']);
+            flash('success', 'Admin account created! You can now log in.');
+            redirect('index.php');
+        } catch (PDOException $e) {
+            if ($e->getCode() === '23000') {   // duplicate key
+                $errors[] = find_user($old['student_id'])
+                    ? 'That Admin ID is already registered.'
+                    : 'That email is already registered.';
+            } else {
+                $errors[] = 'Could not save the account. Please try again.';
+            }
+        }
+    }
+}
+
+$title = 'Admin Registration';
+$narrow = true;
+require 'header.php';
+?>
+
+    <h1>Admin Registration</h1>
+    <p>Create an administrator account</p>
+
+    <?php if ($errors): ?>
+        <div class="alert alert-danger mb-3">
+            <?php foreach ($errors as $err): ?><div><?= e($err) ?></div><?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+
+    <form action="admin_register.php" method="post">
+        <?= csrf_field() ?>
+
+        <label class="form-label mt-2">Full Name</label>
+        <input class="form-control" type="text" name="fullname" value="<?= e($old['fullname']) ?>" maxlength="100" required>
+
+        <label class="form-label mt-3">Admin ID</label>
+        <input class="form-control" type="text" name="student_id" value="<?= e($old['student_id']) ?>" maxlength="20" required>
+
+        <label class="form-label mt-3">Email</label>
+        <input class="form-control" type="email" name="email" value="<?= e($old['email']) ?>" required>
+
+        <label class="form-label mt-3">Password</label>
+        <input class="form-control" type="password" name="password" minlength="8" autocomplete="new-password" required>
+        <div class="form-text">At least 8 characters.</div>
+
+        <label class="form-label mt-3">Confirm Password</label>
+        <input class="form-control" type="password" name="confirm_password" minlength="8" autocomplete="new-password" required>
+
+        <label class="form-label mt-3">Admin Registration Code</label>
+        <input class="form-control" type="password" name="admin_code" autocomplete="off" required>
+        <div class="form-text">Provided by the system owner.</div>
+
+        <button type="submit" class="btn btn-primary w-100 mt-4">Register as Admin</button>
+    </form>
+
+    <p class="mt-4 mb-0">Already have an account? <a href="index.php">Log in</a></p>
+
+<script>
+const pw = document.querySelector('[name="password"]');
+const cpw = document.querySelector('[name="confirm_password"]');
+function checkMatch() {
+    cpw.setCustomValidity(pw.value !== cpw.value ? 'Passwords do not match.' : '');
+}
+pw.addEventListener('input', checkMatch);
+cpw.addEventListener('input', checkMatch);
+</script>
+
+<?php require 'footer.php'; ?>
