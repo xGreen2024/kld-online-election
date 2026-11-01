@@ -1,7 +1,7 @@
 <?php
 // Fetch database configuration from Render environment variables
 $host = getenv('DB_HOST');
-$port = getenv('DB_PORT') ?: '19320';
+$port = getenv('DB_PORT') ?: '3306';
 $db   = getenv('DB_NAME');
 $user = getenv('DB_USER');
 $pass = getenv('DB_PASS');
