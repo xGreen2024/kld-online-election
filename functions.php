@@ -352,7 +352,28 @@ function send_reset_email(string $email): bool {
 }
 
 function make_reset_link(string $email): string {
-    return APP_BASE_URL . '/reset_password.php?email=' . urlencode($email);
+    $user = find_user_by_email($email);
+    if (!$user) {
+        return '';
+    }
+
+    $rawToken  = bin2hex(random_bytes(32));
+    $tokenHash = hash('sha256', $rawToken);
+    $expiresAt = date('Y-m-d H:i:s', strtotime('+1 hour'));
+
+    try {
+        // Clear any old reset requests for this user
+        db()->prepare('DELETE FROM password_resets WHERE user_id = ?')->execute([(int)$user['id']]);
+        
+        // Insert new token hash
+        db()->prepare('INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES (?, ?, ?)')
+            ->execute([(int)$user['id'], $tokenHash, $expiresAt]);
+    } catch (Throwable $e) {
+        error_log('Failed to save reset token: ' . $e->getMessage());
+        return '';
+    }
+
+    return APP_BASE_URL . '/reset_password.php?token=' . urlencode($rawToken);
 }
 
 const RESET_DEMO_MODE = false;
