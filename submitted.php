@@ -43,21 +43,20 @@ if (!$user) {
 try {
     db()->beginTransaction();
 
-    // 1. Record choices in ballot_choices
+    // 1. Insert choices into ballot_choices (position_key, candidate)
+    $stmt = db()->prepare('INSERT INTO ballot_choices (position_key, candidate) VALUES (?, ?)');
     foreach ($choices as $posKey => $candidate) {
-        $stmt = db()->prepare('INSERT INTO ballot_choices (student_id, position_key, candidate) VALUES (?, ?, ?)');
-        $stmt->execute([$studentId, $posKey, $candidate]);
+        $stmt->execute([$posKey, $candidate]);
     }
 
-    // 2. Insert ballot record into ballots table (fallback for schema variants)
+    // 2. Record timestamped entry in master ballots table
     try {
         db()->prepare('INSERT INTO ballots (student_id) VALUES (?)')->execute([$studentId]);
     } catch (Throwable $e) {
-        // If ballots table has no student_id column or uses auto-increment only
         db()->prepare('INSERT INTO ballots () VALUES ()')->execute();
     }
 
-    // 3. Mark user as having voted in users table
+    // 3. Flag student as having voted
     db()->prepare('UPDATE users SET has_voted = 1 WHERE student_id = ?')
         ->execute([$studentId]);
 
@@ -68,7 +67,6 @@ try {
         db()->rollBack();
     }
     error_log('Vote recording failed: ' . $e->getMessage());
-    // Flash actual error message for quick diagnosis
     flash('danger', 'Vote failed: ' . $e->getMessage());
     redirect('vote.php');
 }
