@@ -49,7 +49,7 @@ if (is_post()) {
         $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
 
         // Update user's password
-        db()->prepare('UPDATE users SET password_hash = ? WHERE id = ?')
+        db()->prepare('UPDATE users SET password = ? WHERE id = ?')
             ->execute([$hashedPassword, $resetRecord['user_id']]);
 
         // Remove used token from database
