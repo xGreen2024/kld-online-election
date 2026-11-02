@@ -22,15 +22,14 @@ if (is_post()) {
     }
 
     if (!$errors) {
-    try {
-        db()->prepare('INSERT INTO users (student_id, fullname, email, password, email_verified) VALUES (?, ?, ?, ?, 0)')
-            ->execute([$old['student_id'], $old['fullname'], $old['email'], password_hash($pass, PASSWORD_DEFAULT)]);
-        $newUser = find_user($old['student_id']);
-        $sent = $newUser ? send_verification($newUser) : false;
-        flash($sent ? 'success' : 'warning', $sent
-            ? 'Account created! We sent a verification link to your email. Verify it, then log in.'
-            : 'Account created, but we could not send the verification email. Use "Send me a new verification link" on the login page, or ask an administrator.');
-        redirect('index.php');
+        try {
+            db()->prepare('INSERT INTO users (student_id, fullname, email, password, email_verified) VALUES (?, ?, ?, ?, 0)')
+                ->execute([$old['student_id'], $old['fullname'], $old['email'], password_hash($pass, PASSWORD_DEFAULT)]);
+            
+            $sent = false; 
+            flash('warning', 'Account created! Verification emails are currently disabled. Contact an administrator to activate your account, or log in.');
+            redirect('index.php');
+        } catch (PDOException $e) {
     } catch (PDOException $e) {
         if ($e->getCode() === '23000') {   // duplicate key
             $errors[] = find_user($old['student_id'])
