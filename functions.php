@@ -229,27 +229,6 @@ function delete_candidate_photo(?string $name): void {
     if ($name && preg_match('/^[a-f0-9]{24}\.(jpg|png|webp)$/', $name)) @unlink(__DIR__ . '/uploads/candidates/' . $name);
 }
 
-// ---------- Email verification ----------
-function send_verification(array $user): bool {
-    $token = bin2hex(random_bytes(32));
-    db()->prepare('DELETE FROM email_verifications WHERE user_id = ?')->execute([$user['id']]);
-    db()->prepare('INSERT INTO email_verifications (token_hash, user_id, expires_at)
-                   VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))')
-        ->execute([hash('sha256', $token), $user['id']]);
-    $link = APP_BASE_URL . '/verify_email.php?token=' . $token;
-    $safe = e($link);
-    return send_mail(
-        $user['email'],
-        'Verify your KLD Online Election account',
-        "<p>Hello " . e($user['fullname']) . ",</p>
-         <p>Thanks for registering. Please confirm your email within <strong>24 hours</strong>:</p>
-         <p><a href=\"$safe\" style=\"background:#0b6b3a;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;\">Verify my email</a></p>
-         <p>Or copy this link into your browser:<br>$safe</p>",
-        "Confirm your email within 24 hours:\n\n$link"
-    );
-}
-
-// ---------- Password reset ----------
 function send_verification(array $user): bool {
     return true;
 }
