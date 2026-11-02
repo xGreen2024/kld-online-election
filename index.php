@@ -1,93 +1,83 @@
 <?php
 require_once __DIR__ . '/functions.php';
 
-$token = $_GET['token'] ?? $_POST['token'] ?? '';
+if (is_logged_in()) {
+    redirect(home_for_role());
+}
+
 $error = '';
+$sid = '';
+$unverified = false;
 
-if (!$token) {
-    $title = 'Invalid Link';
-    require 'header.php';
-    echo '<div class="alert alert-danger mt-4">No token provided. Please request a new password reset link.</div>';
-    echo '<div class="actions mt-3"><a href="forgot_password.php" class="btn btn-primary">Request new link</a></div>';
-    require 'footer.php';
-    exit;
-}
-
-// Hash incoming raw token to match database token_hash
-$tokenHash = hash('sha256', $token);
-
-$stmt = db()->prepare('
-    SELECT pr.user_id, pr.expires_at, u.email 
-    FROM password_resets pr 
-    JOIN users u ON pr.user_id = u.id 
-    WHERE pr.token_hash = ? AND pr.expires_at > NOW()
-');
-$stmt->execute([$tokenHash]);
-$resetRecord = $stmt->fetch();
-
-if (!$resetRecord) {
-    $title = 'Invalid Link';
-    require 'header.php';
-    echo '<div class="alert alert-danger mt-4">This password reset link is invalid or has expired. Please request a new one.</div>';
-    echo '<div class="actions mt-3"><a href="forgot_password.php" class="btn btn-primary">Request new link</a></div>';
-    require 'footer.php';
-    exit;
-}
-
-// Handle Form Submission
 if (is_post()) {
     csrf_check();
-    $newPassword     = post('new_password');
-    $confirmPassword = post('confirm_password');
+    $sid  = post('student_id');
+    $pass = post('password', false);
+    $user = find_user($sid);
 
-    if (strlen($newPassword) < 8) {
-        $error = 'Password must be at least 8 characters long.';
-    } elseif ($newPassword !== $confirmPassword) {
-        $error = 'Passwords do not match.';
-    } else {
-        // Hash the new password using PHP standard hashing matching index.php
-        $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
-        $userId = (int)$resetRecord['user_id'];
-
-        // Execute UPDATE statement targeting column `password`
-        $updateStmt = db()->prepare('UPDATE users SET password = ? WHERE id = ?');
-        $success = $updateStmt->execute([$hashedPassword, $userId]);
-
-        if ($success && $updateStmt->rowCount() > 0) {
-            // Delete used token from database
-            db()->prepare('DELETE FROM password_resets WHERE user_id = ?')->execute([$userId]);
-
-            flash('success', 'Your password has been reset successfully. Please log in.');
-            redirect('index.php');
+    if ($user && password_verify($pass, $user['password'])) {
+        if (!(int)$user['is_active']) {
+            $error = 'This account is deactivated. Please contact an administrator to reactivate it.';
+        } elseif ($user['role'] !== 'admin' && !(int)($user['email_verified'] ?? 1)) {
+            $error = 'Please verify your email first. We sent a link when you registered.';
+            $unverified = true;
         } else {
-            $error = 'Failed to update password in database. Please try again.';
+            session_regenerate_id(true);
+            $_SESSION['logged_in']  = true;
+            $_SESSION['student_id'] = $user['student_id'];
+            $_SESSION['fullname']   = $user['fullname'];
+            $_SESSION['role']       = $user['role'] ?? 'student';
+            if (!empty($_POST['remember'])) remember_issue((int)$user['id']);
+
+            redirect($_SESSION['role'] === 'admin' ? 'admin.php' : 'home.php');
         }
+    } else {
+        $error = 'Invalid Student ID or password.';
     }
 }
 
-$title = 'Set New Password';
+$title = 'Login';
 $narrow = true;
 require 'header.php';
 ?>
 
-<h1>Set new password</h1>
+<h1>Online Election System</h1>
+<p>Student Council Election 2026</p>
+
+<?php flash_render(); ?>
 
 <?php if ($error): ?>
-    <div class="alert alert-danger"><?= e($error) ?></div>
+    <div class="alert alert-danger">
+        <?= e($error) ?>
+        <?php if ($unverified): ?>
+            <br><a href="resend_verification.php">Send me a new verification link</a>
+        <?php endif; ?>
+    </div>
 <?php endif; ?>
 
-<form action="reset_password.php?token=<?= urlencode($token) ?>" method="post">
+<form action="index.php" method="post">
     <?= csrf_field() ?>
-    <input type="hidden" name="token" value="<?= e($token) ?>">
 
-    <label class="form-label mt-2">New password</label>
-    <input class="form-control" type="password" name="new_password" minlength="8" autocomplete="new-password" required>
-    <div class="form-text">At least 8 characters.</div>
+    <label class="form-label mt-2">Student ID</label>
+    <input class="form-control" type="text" name="student_id" value="<?= e($sid) ?>" autocomplete="username" required>
 
-    <label class="form-label mt-3">Confirm new password</label>
-    <input class="form-control" type="password" name="confirm_password" minlength="8" autocomplete="new-password" required>
+    <label class="form-label mt-3">Password</label>
+    <input class="form-control" type="password" name="password" autocomplete="current-password" required>
+    <div class="text-end mt-1">
+        <a href="forgot_password.php" class="small">Forgot your password?</a>
+    </div>
 
-    <button type="submit" class="btn btn-primary w-100 mt-4">Save new password</button>
+    <div class="form-check mt-3">
+        <input class="form-check-input" type="checkbox" name="remember" id="remember" value="1">
+        <label class="form-check-label" for="remember">Keep me logged in on this device (30 days)</label>
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100 mt-4">Login</button>
 </form>
+
+<p class="mt-4 mb-2">Don't have an account? <a href="register.php">Create one</a></p>
+<?php if (results_visible()): ?>
+    <p class="mb-0"><a href="results.php" class="btn btn-warning-kld btn-sm">See live results</a></p>
+<?php endif; ?>
 
 <?php require 'footer.php'; ?>
