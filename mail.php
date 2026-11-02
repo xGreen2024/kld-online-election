@@ -11,4 +11,6 @@ $host     = $_SERVER['HTTP_HOST'] ?? 'localhost';
 $script   = dirname($_SERVER['SCRIPT_NAME'] ?? '');
 $baseUrl  = rtrim($protocol . $host . $script, '/\\');
 
-define('APP_BASE_URL', $baseUrl);
+if (!defined('APP_BASE_URL')) {
+    define('APP_BASE_URL', getenv('APP_BASE_URL') ?: 'https://kld-online-election.onrender.com');
+}
