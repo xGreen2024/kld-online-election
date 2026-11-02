@@ -2,9 +2,7 @@
 require_once __DIR__ . '/functions.php';
 require_admin();
 
-$error = '';
-
-// Handle Form Submissions (Add Position / Add Candidate)
+// Handle Form Submissions (Add Position / Delete Position / Add Candidate)
 if (is_post()) {
     csrf_check();
     $action = post('action');
@@ -21,6 +19,24 @@ if (is_post()) {
                 flash('success', "Position '$label' added successfully.");
             } catch (Throwable $e) {
                 flash('danger', 'Position already exists or could not be created.');
+            }
+        }
+        redirect('admin_candidates.php');
+    }
+
+    // Delete Position (and all its candidates)
+    if ($action === 'delete_position') {
+        $posKey = post('position_key');
+        if ($posKey) {
+            try {
+                // Delete candidates belonging to this position
+                db()->prepare('DELETE FROM candidates WHERE position_key = ?')->execute([$posKey]);
+                // Delete the position record
+                db()->prepare('DELETE FROM positions WHERE position_key = ?')->execute([$posKey]);
+
+                flash('success', 'Position deleted successfully.');
+            } catch (Throwable $e) {
+                flash('danger', 'Could not delete position.');
             }
         }
         redirect('admin_candidates.php');
@@ -61,6 +77,13 @@ require 'header.php';
     <div class="card p-3 mb-3 shadow-sm">
         <div class="d-flex justify-content-between align-items-center mb-2">
             <h4 class="m-0"><?= e($p['label']) ?></h4>
+            <!-- Delete Position Form Button -->
+            <form action="admin_candidates.php" method="post" onsubmit="return confirm('Are you sure you want to delete this position and all candidates running under it?');">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="delete_position">
+                <input type="hidden" name="position_key" value="<?= e($p['position_key']) ?>">
+                <button type="submit" class="btn btn-outline-danger btn-sm">Delete Position</button>
+            </form>
         </div>
 
         <?php $cands = $candidates[$p['position_key']] ?? []; ?>
@@ -79,7 +102,7 @@ require 'header.php';
     </div>
 <?php endforeach; ?>
 
-<!-- + Add Position & Candidate Forms (Placed before 'Back to dashboard') -->
+<!-- + Add Position & Candidate Forms -->
 <div class="row my-4">
     <!-- Add Position Card -->
     <div class="col-md-6 mb-3">
