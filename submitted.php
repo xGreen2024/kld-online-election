@@ -43,17 +43,22 @@ if (!$user) {
 try {
     db()->beginTransaction();
 
-    // 1. Insert choices into ballot_choices (position_key, candidate)
-    $stmt = db()->prepare('INSERT INTO ballot_choices (position_key, candidate) VALUES (?, ?)');
-    foreach ($choices as $posKey => $candidate) {
-        $stmt->execute([$posKey, $candidate]);
-    }
-
-    // 2. Record timestamped entry in master ballots table
+    // 1. First insert master record into ballots table to create a ballot_id
     try {
-        db()->prepare('INSERT INTO ballots (student_id) VALUES (?)')->execute([$studentId]);
+        $stmtBallot = db()->prepare('INSERT INTO ballots (student_id) VALUES (?)');
+        $stmtBallot->execute([$studentId]);
     } catch (Throwable $e) {
-        db()->prepare('INSERT INTO ballots () VALUES ()')->execute();
+        $stmtBallot = db()->prepare('INSERT INTO ballots () VALUES ()');
+        $stmtBallot->execute();
+    }
+    
+    // Get auto-incremented ballot_id
+    $ballotId = db()->lastInsertId();
+
+    // 2. Insert choices into ballot_choices referencing ballot_id
+    $stmtChoice = db()->prepare('INSERT INTO ballot_choices (ballot_id, position_key, candidate) VALUES (?, ?, ?)');
+    foreach ($choices as $posKey => $candidate) {
+        $stmtChoice->execute([$ballotId, $posKey, $candidate]);
     }
 
     // 3. Flag student as having voted
