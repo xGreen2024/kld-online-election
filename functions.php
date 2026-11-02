@@ -230,11 +230,98 @@ function delete_candidate_photo(?string $name): void {
 }
 
 function send_verification(array $user): bool {
-    return true;
+    $apiKey = getenv('BREVO_API_KEY');
+    
+    // Fallback: skip mail processing if environment key is missing
+    if (!$apiKey) {
+        return true; 
+    }
+
+    $email = $user['email'];
+    $verificationLink = APP_BASE_URL . '/verify.php?token=' . urlencode($user['verification_token'] ?? '');
+
+    $payload = json_encode([
+        'sender' => [
+            'name'  => 'KLD Online Election',
+            'email' => 'aaronbalba059@gmail.com'
+        ],
+        'to' => [
+            ['email' => $email]
+        ],
+        'subject' => 'Verify Your KLD Election Account',
+        'htmlContent' => "
+            <h2>Welcome to KLD Online Election!</h2>
+            <p>Please click the button below to verify your email address and activate your account:</p>
+            <p><a href='{$verificationLink}' style='background-color:#4F46E5;color:white;padding:10px 15px;text-decoration:none;border-radius:5px;'>Verify Email Address</a></p>
+            <p>Or paste this link into your browser:<br>{$verificationLink}</p>
+        "
+    ]);
+
+    $ch = curl_init('https://api.brevo.com/v3/smtp/email');
+    curl_setopt_array($ch, [
+        CURLOPT_POST           => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER     => [
+            'api-key: ' . $apiKey,
+            'Content-Type: application/json',
+            'Accept: application/json'
+        ],
+        CURLOPT_POSTFIELDS     => $payload
+    ]);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    return $httpCode >= 200 && $httpCode < 300;
 }
 
 function send_reset_email(string $email): bool {
-    return true;
+    $apiKey = getenv('BREVO_API_KEY');
+    
+    // Fallback: skip sending if API key is not set
+    if (!$apiKey) {
+        return true; 
+    }
+
+    $resetLink = make_reset_link($email);
+
+    $payload = json_encode([
+        'sender' => [
+            'name'  => 'KLD Online Election',
+            'email' => 'aaronbalba059@gmail.com'
+        ],
+        'to' => [
+            ['email' => $email]
+        ],
+        'subject' => 'Reset Your Password - KLD Online Election',
+        'htmlContent' => "
+            <h2>Password Reset Request</h2>
+            <p>We received a request to reset your password for your KLD Online Election account.</p>
+            <p>Please click the button below to reset your password:</p>
+            <p><a href='{$resetLink}' style='background-color:#EF4444;color:white;padding:10px 15px;text-decoration:none;border-radius:5px;'>Reset Password</a></p>
+            <p>Or paste this link into your browser:<br>{$resetLink}</p>
+            <p><small>If you did not request this, you can safely ignore this email.</small></p>
+        "
+    ]);
+
+    $ch = curl_init('https://api.brevo.com/v3/smtp/email');
+    curl_setopt_array($ch, [
+        CURLOPT_POST           => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER     => [
+            'api-key: ' . $apiKey,
+            'Content-Type: application/json',
+            'Accept: application/json'
+        ],
+        CURLOPT_POSTFIELDS     => $payload
+    ]);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    return $httpCode >= 200 && $httpCode < 300;
 }
 
 function make_reset_link(string $email): string {
