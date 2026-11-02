@@ -298,14 +298,6 @@ function send_verification(array $user): bool {
 
     return $httpCode >= 200 && $httpCode < 300;
 }
-    ]);
-
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-
-    return $httpCode >= 200 && $httpCode < 300;
-}
 
 function send_reset_email(string $email): bool {
     $apiKey = getenv('BREVO_API_KEY');
