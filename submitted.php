@@ -2,87 +2,91 @@
 require_once __DIR__ . '/functions.php';
 require_student();
 
-if (is_post()) {
-    csrf_check();
-    $choices = $_SESSION['pending_vote'] ?? null;
-    if (!$choices) redirect('vote.php');
-    require_voting_open();
-
-    $pdo = db();
-    $recorded = false;
-    try {
-        $pdo->beginTransaction();
-        // Only succeeds if they haven't voted, which blocks double votes even on double-clicks
-        $st = $pdo->prepare('UPDATE users SET has_voted = 1 WHERE student_id = ? AND has_voted = 0');
-        $st->execute([$_SESSION['student_id']]);
-        if ($st->rowCount() === 1) {
-            $pdo->exec('INSERT INTO ballots () VALUES ()');
-            $ballotId = $pdo->lastInsertId();
-            $ins = $pdo->prepare('INSERT INTO ballot_choices (ballot_id, position_key, candidate) VALUES (?, ?, ?)');
-            foreach ($choices as $pos => $cand) $ins->execute([$ballotId, $pos, $cand]);
-            $recorded = true;
-        }
-        $pdo->commit();
-    } catch (Throwable $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
-    }
-    unset($_SESSION['pending_vote']);
-
-    if ($recorded) {
-        // Receipt: shown once. Time is kept in the session only, never stored with the ballot, so votes stay anonymous.
-        $me = find_user($_SESSION['student_id']);
-        $when = date('F j, Y g:i A');
-        $mailed = false;
-        if ($me && !empty($me['email'])) {
-            $mailed = send_mail(
-                $me['email'],
-                'Your vote was recorded',
-                '<p>Hello ' . e($me['fullname']) . ',</p><p>This confirms that your vote in the <strong>Student Council Election 2026</strong> was recorded on <strong>' . e($when) . '</strong>.</p><p>For your privacy, this email does not include your choices.</p>',
-                "Your vote in the Student Council Election 2026 was recorded on $when.\nThis email does not include your choices."
-            );
-        }
-        $_SESSION['vote_receipt'] = ['time' => $when, 'mailed' => $mailed];
-    }
-
-    if (!has_voted()) {
-        flash('danger', 'Your vote could not be recorded. Please try again.');
-        redirect('vote.php');
-    }
-    redirect('submitted.php');
+if (has_voted()) {
+    $title = 'Vote Submitted';
+    require 'header.php';
+    ?>
+    <div class="alert alert-success mt-4">
+        <h4>Your vote has already been submitted!</h4>
+        <p>Thank you for participating in the KLD Student Council Election 2026.</p>
+    </div>
+    <a href="home.php" class="btn btn-primary">Return to Home</a>
+    <?php
+    require 'footer.php';
+    exit;
 }
 
-if (!has_voted()) redirect('vote.php');
+if (!is_post()) redirect('vote.php');
+csrf_check();
+require_voting_open();
 
-$receipt = $_SESSION['vote_receipt'] ?? null;
-unset($_SESSION['vote_receipt']);
+// Parse choices directly from POST payload
+$choices = [];
+foreach (POSITIONS as $key => $pos) {
+    $value = post($key);
+    if (!in_array($value, $pos['candidates'], true)) {
+        flash('danger', 'Invalid submission. Please select candidates again.');
+        redirect('vote.php');
+    }
+    $choices[$key] = $value;
+}
+
+$studentId = $_SESSION['student_id'];
+$user = find_user($studentId);
+
+if (!$user) {
+    flash('danger', 'User account not found.');
+    redirect('vote.php');
+}
+
+// Database Transaction
+try {
+    db()->beginTransaction();
+
+    // 1. Record choices in database
+    $stmt = db()->prepare('INSERT INTO ballot_choices (student_id, position_key, candidate) VALUES (?, ?, ?)');
+    foreach ($choices as $posKey => $candidate) {
+        $stmt->execute([$studentId, $posKey, $candidate]);
+    }
+
+    // 2. Insert ballot record
+    db()->prepare('INSERT INTO ballots (student_id, created_at) VALUES (?, NOW())')
+        ->execute([$studentId]);
+
+    // 3. Set voter status
+    db()->prepare('UPDATE users SET has_voted = 1 WHERE student_id = ?')
+        ->execute([$studentId]);
+
+    db()->commit();
+
+} catch (Throwable $e) {
+    if (db()->inTransaction()) {
+        db()->rollBack();
+    }
+    error_log('Vote recording failed: ' . $e->getMessage());
+    flash('danger', 'An error occurred while saving your vote. Please try again.');
+    redirect('vote.php');
+}
+
+log_action('voted', 'Vote successfully recorded.');
+
 $title = 'Vote Submitted';
 require 'header.php';
 ?>
 
-    <h1>Vote Submitted!</h1>
-
-    <p>
-        Thank you for participating in the
-        Student Council Election.
-    </p>
-
-    <div class="status done">
-        <span class="dot"></span>
-        <div>
-            <strong>Your vote has been recorded.</strong><br>
-            <?php if ($receipt): ?>
-                Recorded on <?= e($receipt['time']) ?>.
-                <?= $receipt['mailed'] ? 'A confirmation was sent to your email.' : '' ?>
-            <?php else: ?>
-                You have already voted. Your vote cannot be changed.
-            <?php endif; ?>
-        </div>
+<div class="text-center py-5">
+    <div class="mb-4">
+        <span class="fs-1 text-success">✓</span>
     </div>
-    <p class="text-muted small mt-3">For your privacy, your choices are not shown here and are not linked to your name.</p>
+    <h1>Thank You for Voting!</h1>
+    <p class="lead-text">Your vote has been securely recorded for the Student Council Election 2026.</p>
 
-    <div class="actions">
-        <a href="home.php" class="btn btn-primary">Back to dashboard</a>
-        <a href="logout.php" class="btn btn-outline-primary">Logout</a>
+    <div class="mt-4">
+        <a href="home.php" class="btn btn-primary me-2">Go to Home</a>
+        <?php if (results_visible()): ?>
+            <a href="results.php" class="btn btn-warning-kld">View Live Results</a>
+        <?php endif; ?>
     </div>
+</div>
 
 <?php require 'footer.php'; ?>
