@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/functions.php';
 
-$token = $_GET['token'] ?? $_POST['token'] ?? '';
+$token = $_POST['token'] ?? $_GET['token'] ?? '';
 $error = '';
 
 if (!$token) {
@@ -17,9 +17,8 @@ if (!$token) {
 $tokenHash = hash('sha256', $token);
 
 $stmt = db()->prepare('
-    SELECT pr.*, u.id AS user_id, u.email 
+    SELECT pr.user_id 
     FROM password_resets pr 
-    JOIN users u ON pr.user_id = u.id 
     WHERE pr.token_hash = ? AND pr.expires_at > NOW()
 ');
 $stmt->execute([$tokenHash]);
@@ -33,6 +32,8 @@ if (!$resetRecord) {
     require 'footer.php';
     exit;
 }
+
+$userId = (int)$resetRecord['user_id'];
 
 // Handle Form Submission
 if (is_post()) {
@@ -48,13 +49,13 @@ if (is_post()) {
         // Hash the new password securely
         $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
 
-        // Update user's password
+        // Update user's password in users table
         db()->prepare('UPDATE users SET password = ? WHERE id = ?')
-            ->execute([$hashedPassword, $resetRecord['user_id']]);
+            ->execute([$hashedPassword, $userId]);
 
         // Remove used token from database
         db()->prepare('DELETE FROM password_resets WHERE user_id = ?')
-            ->execute([$resetRecord['user_id']]);
+            ->execute([$userId]);
 
         flash('success', 'Your password has been reset successfully. Please log in.');
         redirect('index.php');
