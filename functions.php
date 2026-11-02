@@ -250,36 +250,14 @@ function send_verification(array $user): bool {
 }
 
 // ---------- Password reset ----------
-function make_reset_link(string $email): ?string {
-    $st = db()->prepare('SELECT id FROM users WHERE email = ? AND is_active = 1');
-    $st->execute([$email]);
-    $uid = $st->fetchColumn();
-    if (!$uid) return null;
-
-    $token = bin2hex(random_bytes(32));
-    db()->exec('DELETE FROM password_resets WHERE expires_at < NOW()');
-    db()->prepare('INSERT INTO password_resets (token_hash, user_id, expires_at)
-                   VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 1 HOUR))')
-        ->execute([hash('sha256', $token), $uid]);
-
-    return APP_BASE_URL . '/reset_password.php?token=' . $token;
+function send_verification(array $user): bool {
+    return true;
 }
 
 function send_reset_email(string $email): bool {
-    $link = make_reset_link($email);
-    if (!$link) return false;
-    $safe = e($link);
-    return send_mail(
-        $email,
-        'Reset your Online Election password',
-        "<p>Hello,</p>
-         <p>A password reset was requested for your Online Election account. Click the button below within <strong>one hour</strong>:</p>
-         <p><a href=\"$safe\" style=\"background:#0b6b3a;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;\">Reset my password</a></p>
-         <p>Or copy this link into your browser:<br>$safe</p>
-         <p>If you didn't ask for this, you can ignore this email.</p>",
-        "Use this link within one hour to set a new password:\n\n$link\n\nIf you didn't ask for this, ignore this email."
-    );
+    return true;
 }
+
 
 const RESET_DEMO_MODE = false;
 
