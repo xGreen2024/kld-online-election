@@ -5,6 +5,13 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// ---------- Application Configuration ----------
+if (!defined('APP_BASE_URL')) {
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'kld-online-election.onrender.com';
+    define('APP_BASE_URL', getenv('APP_BASE_URL') ?: "$protocol://$host");
+}
+
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/mailer.php';
 
