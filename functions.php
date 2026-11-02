@@ -244,8 +244,24 @@ function send_verification(array $user): bool {
         return true; 
     }
 
-    $email = $user['email'];
-    $verificationLink = APP_BASE_URL . '/verify.php?token=' . urlencode($user['verification_token'] ?? '');
+    $email  = $user['email'];
+    $userId = (int)$user['id'];
+
+    // Generate a secure token and hash it for storage in email_verifications table
+    $rawToken  = bin2hex(random_bytes(32));
+    $tokenHash = hash('sha256', $rawToken);
+    $expiresAt = date('Y-m-d H:i:s', strtotime('+1 day'));
+
+    try {
+        db()->prepare('DELETE FROM email_verifications WHERE user_id = ?')->execute([$userId]);
+        db()->prepare('INSERT INTO email_verifications (user_id, token_hash, expires_at) VALUES (?, ?, ?)')
+            ->execute([$userId, $tokenHash, $expiresAt]);
+    } catch (Throwable $e) {
+        error_log('Failed to save verification token: ' . $e->getMessage());
+        return false;
+    }
+
+    $verificationLink = APP_BASE_URL . '/verify_email.php?token=' . urlencode($rawToken);
 
     $payload = json_encode([
         'sender' => [
@@ -274,6 +290,14 @@ function send_verification(array $user): bool {
             'Accept: application/json'
         ],
         CURLOPT_POSTFIELDS     => $payload
+    ]);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    return $httpCode >= 200 && $httpCode < 300;
+}
     ]);
 
     $response = curl_exec($ch);
