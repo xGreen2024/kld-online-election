@@ -288,6 +288,7 @@ function send_verification(array $user): bool {
     curl_setopt_array($ch, [
         CURLOPT_POST           => true,
         CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 10,
         CURLOPT_HTTPHEADER     => [
             'api-key: ' . $apiKey,
             'Content-Type: application/json',
@@ -306,12 +307,14 @@ function send_verification(array $user): bool {
 function send_reset_email(string $email): bool {
     $apiKey = getenv('BREVO_API_KEY');
     
-    // Fallback: skip sending if API key is not set
+    $resetLink = make_reset_link($email);
+    if (!$resetLink) {
+        return false;
+    }
+
     if (!$apiKey) {
         return true; 
     }
-
-    $resetLink = make_reset_link($email);
 
     $payload = json_encode([
         'sender' => [
@@ -336,6 +339,7 @@ function send_reset_email(string $email): bool {
     curl_setopt_array($ch, [
         CURLOPT_POST           => true,
         CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 10,
         CURLOPT_HTTPHEADER     => [
             'api-key: ' . $apiKey,
             'Content-Type: application/json',
@@ -352,9 +356,8 @@ function send_reset_email(string $email): bool {
 }
 
 function make_reset_link(string $email): string {
-    // Fetch user directly from database using PDO
-    $stmt = db()->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
-    $stmt->execute([$email]);
+    $stmt = db()->prepare('SELECT id FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1');
+    $stmt->execute([trim($email)]);
     $user = $stmt->fetch();
 
     if (!$user) {
@@ -366,10 +369,7 @@ function make_reset_link(string $email): string {
     $expiresAt = date('Y-m-d H:i:s', strtotime('+1 hour'));
 
     try {
-        // Clear any old reset requests for this user
         db()->prepare('DELETE FROM password_resets WHERE user_id = ?')->execute([(int)$user['id']]);
-        
-        // Insert new token hash
         db()->prepare('INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES (?, ?, ?)')
             ->execute([(int)$user['id'], $tokenHash, $expiresAt]);
     } catch (Throwable $e) {
