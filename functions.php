@@ -236,10 +236,11 @@ function send_verification(array $user): bool {
 function send_reset_email(string $email): bool {
     return true;
 }
-
+function make_reset_link(string $email): string {
+    return APP_BASE_URL . '/reset_password.php?email=' . urlencode($email);
+}
 
 const RESET_DEMO_MODE = false;
-
 // ---------- Remember me ----------
 const REMEMBER_DAYS = 30;
 
