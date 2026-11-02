@@ -352,7 +352,11 @@ function send_reset_email(string $email): bool {
 }
 
 function make_reset_link(string $email): string {
-    $user = find_user_by_email($email);
+    // Fetch user directly from database using PDO
+    $stmt = db()->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
+    $stmt->execute([$email]);
+    $user = $stmt->fetch();
+
     if (!$user) {
         return '';
     }
