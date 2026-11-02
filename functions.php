@@ -12,6 +12,10 @@ if (!defined('APP_BASE_URL')) {
     define('APP_BASE_URL', getenv('APP_BASE_URL') ?: "$protocol://$host");
 }
 
+if (!defined('ADMIN_REGISTER_CODE')) {
+    define('ADMIN_REGISTER_CODE', getenv('ADMIN_REGISTER_CODE') ?: 'walangkaninbuseng');
+}
+
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/mailer.php';
 
