@@ -60,12 +60,11 @@ if (is_post()) {
                 $mail->isSMTP();
                 $mail->Host       = 'smtp-relay.brevo.com';
                 $mail->SMTPAuth   = true;
-                $mail->Username   = getenv('BREVO_USER') ?: 'aaronbalba059@gmail.com'; 
+                $mail->Username   = getenv('BREVO_USER') ?: 'acbalba@kld.edu.ph'; 
                 $mail->Password   = getenv('BREVO_API_KEY'); 
-                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-                $mail->Port       = 587; // Correct Brevo TLS port (NOT 19320)
-                $mail->Timeout    = 10;  // 10s timeout prevents loading hangs
-
+                $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS; // Change STARTTLS to SMTPS (SSL)
+                $mail->Port       = 465;                        // Change 587 to 465
+                $mail->Timeout    = 10;
                 // Sender & Recipient Details
                 $senderEmail = getenv('BREVO_USER') ?: 'aaronbalba059@gmail.com';
                 $mail->setFrom($senderEmail, 'KLD Online Election');
