@@ -60,7 +60,7 @@ if (is_post()) {
 $mail->isSMTP();
 $mail->Host       = 'smtp-relay.brevo.com';
 $mail->SMTPAuth   = true;
-$mail->Username   = getenv('BREVO_USER'); 
+$mail->Username   = getenv('BREVO_USER') ?: 'aaronbalba059@gmail.com'; 
 $mail->Password   = getenv('BREVO_API_KEY'); // Matches your BREVO_API_KEY key in Render
 $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
 $mail->Port       = 19320;
