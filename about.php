@@ -9,7 +9,7 @@ require 'header.php';
 
 <div class="card p-4 shadow-sm mb-4">
     <h3>Student Council Election 2026</h3>
-    <p>This web application is designed to facilitate secure, transparent, and efficient voting for the KLD Student Council Election.</p>
+    <p>This web application is designed to facilitate secure, transparent, and efficient voting for the KLD Online Election.</p>
     <ul>
         <li><strong>Anonymized Voting:</strong> Individual ballot choices are decoupled from student identifiers to ensure vote privacy.</li>
         <li><strong>Real-time Results:</strong> Election turnouts and live candidate statistics are processed dynamically.</li>
