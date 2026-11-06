@@ -56,19 +56,20 @@ if (is_post()) {
                 // 3. Send Verification Email via PHPMailer (Brevo SMTP)
                 $mail = new PHPMailer(true);
                 
-                // Server credentials for Brevo
+                // Server credentials for Brevo (EMAIL RELAY)
                 $mail->isSMTP();
                 $mail->Host       = 'smtp-relay.brevo.com';
                 $mail->SMTPAuth   = true;
                 $mail->Username   = getenv('BREVO_USER') ?: 'aaronbalba059@gmail.com'; 
                 $mail->Password   = getenv('BREVO_API_KEY'); 
                 $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-                $mail->Port       = 587; // Standard Brevo TLS Port
+                $mail->Port       = 587; // Correct Brevo TLS port (NOT 19320)
+                $mail->Timeout    = 10;  // 10s timeout prevents loading hangs
 
                 // Sender & Recipient Details
                 $senderEmail = getenv('BREVO_USER') ?: 'aaronbalba059@gmail.com';
                 $mail->setFrom($senderEmail, 'KLD Online Election');
-                $mail->addAddress($email, $fullname); // <-- FIX: Set recipient student address
+                $mail->addAddress($email, $fullname); // Recipient address
 
                 // Verification Content
                 $verifyLink = "https://kld-online-election.onrender.com/verify_email.php?token=" . urlencode($rawToken);
