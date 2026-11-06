@@ -1,30 +1,38 @@
 <?php
 require_once __DIR__ . '/functions.php';
 
-$token = $_GET['token'] ?? '';
-$token = is_string($token) ? $token : '';
+$rawToken = trim($_GET['token'] ?? '');
+$error = '';
+$success = '';
 
-$st = db()->prepare('SELECT user_id FROM email_verifications WHERE token_hash = ? AND expires_at >= NOW()');
-$st->execute([hash('sha256', $token)]);
-$rec = $st->fetch();
+if (!empty($rawToken)) {
+    // Hash the raw token from the URL to match token_hash stored in database
+    $tokenHash = hash('sha256', $rawToken);
 
-if ($rec) {
-    db()->prepare('UPDATE users SET email_verified = 1 WHERE id = ?')->execute([$rec['user_id']]);
-    db()->prepare('DELETE FROM email_verifications WHERE user_id = ?')->execute([$rec['user_id']]);
-    flash('success', 'Email verified! You can now log in.');
-    redirect('index.php');
+    // Fetch matching verification entry that has not expired
+    $stmt = db()->prepare('
+        SELECT ev.*, u.id AS user_id 
+        FROM email_verifications ev 
+        JOIN users u ON ev.user_id = u.id 
+        WHERE ev.token_hash = ? AND ev.expires_at > NOW()
+    ');
+    $stmt->execute([$tokenHash]);
+    $verification = $stmt->fetch();
+
+    if ($verification) {
+        // Mark user as verified
+        $updateUser = db()->prepare('UPDATE users SET email_verified = 1 WHERE id = ?');
+        $updateUser->execute([$verification['user_id']]);
+
+        // Remove used verification record
+        $deleteToken = db()->prepare('DELETE FROM email_verifications WHERE id = ?');
+        $deleteToken->execute([$verification['id']]);
+
+        flash('success', 'Your email has been successfully verified! You may now log in.');
+        redirect('index.php');
+    } else {
+        $error = 'This verification link is invalid or has expired.';
+    }
+} else {
+    $error = 'No verification token provided.';
 }
-
-$title = 'Verify Email';
-$narrow = true;
-require 'header.php';
-?>
-
-    <h1>Verification link problem</h1>
-    <div class="alert alert-danger">This verification link is invalid or has expired.</div>
-    <div class="actions">
-        <a href="resend_verification.php" class="btn btn-primary">Send a new link</a>
-        <a href="index.php" class="btn btn-outline-primary">Back to login</a>
-    </div>
-
-<?php require 'footer.php'; ?>
