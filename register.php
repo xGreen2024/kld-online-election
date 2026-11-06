@@ -31,20 +31,21 @@ if (is_post()) {
             $hash = password_hash($password, PASSWORD_DEFAULT);
 
             try {
-                // Standard insertion covering student_id, fullname, email, and password
-                $stmt = db()->prepare('INSERT INTO users (student_id, fullname, email, password) VALUES (?, ?, ?, ?)');
+                // Insert user with is_verified set to 0 (unverified)
+                $stmt = db()->prepare('INSERT INTO users (student_id, fullname, email, password, is_verified) VALUES (?, ?, ?, ?, 0)');
                 $stmt->execute([$studentId, $fullname, strtolower($email), $hash]);
 
-                log_action('registered', "User $studentId registered.");
+                // Generate verification token
+                $token = bin2hex(random_bytes(32));
+                $expires = date('Y-m-d H:i:s', strtotime('+24 hours'));
 
-                // Auto-login newly registered user
-                $_SESSION['logged_in']  = true;
-                $_SESSION['student_id'] = $studentId;
-                $_SESSION['fullname']   = $fullname;
-                $_SESSION['role']       = 'student';
+                $stmtToken = db()->prepare('INSERT INTO email_verifications (email, token, expires_at) VALUES (?, ?, ?)');
+                $stmtToken->execute([strtolower($email), $token, $expires]);
 
-                flash('success', 'Registration successful! Welcome to KLD Online Election.');
-                redirect('home.php');
+                log_action('registered', "User $studentId registered. Verification token created.");
+
+                flash('success', 'Registration successful! Please check your email to verify your account before logging in.');
+                redirect('index.php');
             } catch (Throwable $e) {
                 $error = 'Registration failed due to a system error. Please try again.';
             }
