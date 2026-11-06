@@ -1,6 +1,14 @@
 <?php
 require_once __DIR__ . '/functions.php';
 
+// Include PHPMailer classes
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
+if (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require_once __DIR__ . '/vendor/autoload.php';
+}
+
 if (is_logged_in()) redirect(home_for_role());
 
 $error = '';
@@ -45,9 +53,40 @@ if (is_post()) {
                 $stmtToken = db()->prepare('INSERT INTO email_verifications (user_id, token_hash, expires_at) VALUES (?, ?, ?)');
                 $stmtToken->execute([$userId, $tokenHash, $expires]);
 
-                log_action('registered', "User $studentId registered. Verification token created.");
+                // 3. Send Verification Email via PHPMailer
+                $mail = new PHPMailer(true);
+                
+                // Server credentials (replace with your SMTP account settings)
+                $mail->isSMTP();
+                $mail->Host       = 'smtp.gmail.com'; 
+                $mail->SMTPAuth   = true;
+                $mail->Username   = 'aaronbalba059@gmail.com';         // Your SMTP Email address
+                $mail->Password   = 'your-app-password';            // Your SMTP Password / App Password
+                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                $mail->Port       = 587;
 
-                flash('success', 'Registration successful! Please check your email to verify your account before logging in.');
+                // Sender & Recipient
+                $mail->setFrom('your-email@gmail.com', 'KLD Online Election');
+                $mail->addAddress($email, $fullname);
+
+                // Verification Content
+                $verifyLink = "https://kld-online-election.onrender.com/verify_email.php?token=" . urlencode($rawToken);
+
+                $mail->isHTML(true);
+                $mail->Subject = 'Verify Your KLD Election Account';
+                $mail->Body    = "
+                    <h3>Welcome to KLD Online Election, " . htmlspecialchars($fullname) . "!</h3>
+                    <p>Please click the button below to verify your email address and activate your account:</p>
+                    <p><a href='{$verifyLink}' style='background-color:#198754;color:#ffffff;padding:10px 15px;text-decoration:none;border-radius:5px;'>Verify Email Address</a></p>
+                    <p>Or copy and paste this link into your browser:<br><a href='{$verifyLink}'>{$verifyLink}</a></p>
+                    <br><p>This link expires in 24 hours.</p>
+                ";
+
+                $mail->send();
+
+                log_action('registered', "User $studentId registered. Verification email sent.");
+
+                flash('success', 'Registration successful! A verification link has been sent to your email.');
                 redirect('index.php');
 
             } catch (Throwable $e) {
