@@ -18,7 +18,7 @@ if (is_post()) {
 
     $studentId = trim(post('student_id'));
     $fullname  = trim(post('fullname'));
-    $email     = trim(post('email'));
+    $email     = strtolower(trim(post('email')));
     $password  = post('password');
     $confirm   = post('confirm_password');
 
@@ -41,7 +41,7 @@ if (is_post()) {
             try {
                 // 1. Insert user with email_verified set to 0
                 $stmt = db()->prepare('INSERT INTO users (student_id, fullname, email, password, email_verified) VALUES (?, ?, ?, ?, 0)');
-                $stmt->execute([$studentId, $fullname, strtolower($email), $hash]);
+                $stmt->execute([$studentId, $fullname, $email, $hash]);
                 
                 $userId = db()->lastInsertId();
 
@@ -53,21 +53,23 @@ if (is_post()) {
                 $stmtToken = db()->prepare('INSERT INTO email_verifications (user_id, token_hash, expires_at) VALUES (?, ?, ?)');
                 $stmtToken->execute([$userId, $tokenHash, $expires]);
 
-                // 3. Send Verification Email via PHPMailer
+                // 3. Send Verification Email via PHPMailer (Brevo SMTP)
                 $mail = new PHPMailer(true);
                 
-// Server credentials for Brevo
-$mail->isSMTP();
-$mail->Host       = 'smtp-relay.brevo.com';
-$mail->SMTPAuth   = true;
-$mail->Username   = getenv('BREVO_USER') ?: 'aaronbalba059@gmail.com'; 
-$mail->Password   = getenv('BREVO_API_KEY'); // Matches your BREVO_API_KEY key in Render
-$mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-$mail->Port       = 19320;
+                // Server credentials for Brevo
+                $mail->isSMTP();
+                $mail->Host       = 'smtp-relay.brevo.com';
+                $mail->SMTPAuth   = true;
+                $mail->Username   = getenv('BREVO_USER') ?: 'aaronbalba059@gmail.com'; 
+                $mail->Password   = getenv('BREVO_API_KEY'); 
+                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                $mail->Port       = 587; // Standard Brevo TLS Port
 
-// Sender details (Must be a verified sender in Brevo)
-$senderEmail = getenv('BREVO_USER');
-$mail->setFrom($senderEmail, 'KLD Online Election');
+                // Sender & Recipient Details
+                $senderEmail = getenv('BREVO_USER') ?: 'aaronbalba059@gmail.com';
+                $mail->setFrom($senderEmail, 'KLD Online Election');
+                $mail->addAddress($email, $fullname); // <-- FIX: Set recipient student address
+
                 // Verification Content
                 $verifyLink = "https://kld-online-election.onrender.com/verify_email.php?token=" . urlencode($rawToken);
 
