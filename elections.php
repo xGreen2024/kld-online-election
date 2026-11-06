@@ -30,7 +30,7 @@ require 'header.php';
 
     <div class="actions">
         <a href="candidates.php" class="btn btn-outline-primary">Meet the candidates</a>
-        <a href="home.php" class="btn btn-outline-primary">Back to dashboard</a>
+        <a href="home.php" class="btn btn-outline-primary">Back to home</a>
     </div>
 
 <?php require 'footer.php'; ?>
