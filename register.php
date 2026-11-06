@@ -31,23 +31,27 @@ if (is_post()) {
             $hash = password_hash($password, PASSWORD_DEFAULT);
 
             try {
-                // Insert user with is_verified set to 0 (unverified)
-                $stmt = db()->prepare('INSERT INTO users (student_id, fullname, email, password, is_verified) VALUES (?, ?, ?, ?, 0)');
+                // 1. Insert user with email_verified set to 0
+                $stmt = db()->prepare('INSERT INTO users (student_id, fullname, email, password, email_verified) VALUES (?, ?, ?, ?, 0)');
                 $stmt->execute([$studentId, $fullname, strtolower($email), $hash]);
+                
+                $userId = db()->lastInsertId();
 
-                // Generate verification token
-                $token = bin2hex(random_bytes(32));
-                $expires = date('Y-m-d H:i:s', strtotime('+24 hours'));
+                // 2. Generate token & SHA-256 hash (matching verify_email.php)
+                $rawToken  = bin2hex(random_bytes(32));
+                $tokenHash = hash('sha256', $rawToken);
+                $expires   = date('Y-m-d H:i:s', strtotime('+24 hours'));
 
-                $stmtToken = db()->prepare('INSERT INTO email_verifications (email, token, expires_at) VALUES (?, ?, ?)');
-                $stmtToken->execute([strtolower($email), $token, $expires]);
+                $stmtToken = db()->prepare('INSERT INTO email_verifications (user_id, token_hash, expires_at) VALUES (?, ?, ?)');
+                $stmtToken->execute([$userId, $tokenHash, $expires]);
 
                 log_action('registered', "User $studentId registered. Verification token created.");
 
                 flash('success', 'Registration successful! Please check your email to verify your account before logging in.');
                 redirect('index.php');
+
             } catch (Throwable $e) {
-                $error = 'Registration failed due to a system error. Please try again.';
+                $error = 'Registration failed: ' . $e->getMessage();
             }
         }
     }
