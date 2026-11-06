@@ -29,24 +29,25 @@ if (is_post()) {
             $error = 'Your Student ID is not listed in the official voter roll.';
         } else {
             $hash = password_hash($password, PASSWORD_DEFAULT);
-            
-            try {
-                $stmt = db()->prepare('INSERT INTO users (student_id, fullname, email, password, role, has_voted, is_active) VALUES (?, ?, ?, ?, ?, 0, 1)');
-                $stmt->execute([$studentId, $fullname, strtolower($email), $hash, 'student']);
 
-                log_action('registered', "User $studentId registered.");
+try {
+    // Standard insertion covering student_id, fullname, email, and password
+    $stmt = db()->prepare('INSERT INTO users (student_id, fullname, email, password) VALUES (?, ?, ?, ?)');
+    $stmt->execute([$studentId, $fullname, strtolower($email), $hash]);
 
-                // Auto-login newly registered user
-                $_SESSION['logged_in']  = true;
-                $_SESSION['student_id'] = $studentId;
-                $_SESSION['fullname']   = $fullname;
-                $_SESSION['role']       = 'student';
+    log_action('registered', "User $studentId registered.");
 
-                flash('success', 'Registration successful! Welcome to KLD Online Election.');
-                redirect('home.php');
-            } catch (Throwable $e) {
-                $error = 'Registration failed due to a system error. Please try again.';
-            }
+    // Auto-login newly registered user
+    $_SESSION['logged_in']  = true;
+    $_SESSION['student_id'] = $studentId;
+    $_SESSION['fullname']   = $fullname;
+    $_SESSION['role']       = 'student';
+
+    flash('success', 'Registration successful! Welcome to KLD Online Election.');
+    redirect('home.php');
+} catch (Throwable $e) {
+    $error = 'Registration failed: ' . $e->getMessage();
+}
         }
     }
 }
