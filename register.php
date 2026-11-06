@@ -31,7 +31,7 @@ if (is_post()) {
             $hash = password_hash($password, PASSWORD_DEFAULT);
             
             try {
-                $stmt = db()->prepare('INSERT INTO users (student_id, fullname, email, password_hash, role, has_voted, is_active) VALUES (?, ?, ?, ?, ?, 0, 1)');
+                $stmt = db()->prepare('INSERT INTO users (student_id, fullname, email, password, role, has_voted, is_active) VALUES (?, ?, ?, ?, ?, 0, 1)');
                 $stmt->execute([$studentId, $fullname, strtolower($email), $hash, 'student']);
 
                 log_action('registered', "User $studentId registered.");
