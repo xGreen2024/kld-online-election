@@ -48,6 +48,7 @@ try {
 } catch (Throwable $e) {
         $error = 'Registration failed due to a system error. Please try again.';
     }
+        }
 
 $title = 'Register';
 require 'header.php';
