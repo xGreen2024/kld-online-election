@@ -1,93 +1,104 @@
 <?php
 require_once __DIR__ . '/functions.php';
-if (is_logged_in()) redirect('home.php');
 
-$errors = [];
-$old = ['fullname' => '', 'student_id' => '', 'email' => ''];
+if (is_logged_in()) redirect(home_for_role());
+
+$error = '';
 
 if (is_post()) {
     csrf_check();
-    $old = ['fullname' => post('fullname'), 'student_id' => post('student_id'), 'email' => post('email')];
-    $pass = post('password', false);
-    $confirm = post('confirm_password', false);
 
-    if ($old['fullname'] === '' || mb_strlen($old['fullname']) > 100) $errors[] = 'Please enter your full name.';
-    if (!preg_match('/^[A-Za-z0-9-]{3,20}$/', $old['student_id'])) $errors[] = 'Student ID may only contain letters, numbers and dashes (3-20 characters).';
-    if (!filter_var($old['email'], FILTER_VALIDATE_EMAIL)) $errors[] = 'Please enter a valid email address.';
-    if (strlen($pass) < 8) $errors[] = 'Password must be at least 8 characters.';
-    if ($pass !== $confirm) $errors[] = 'The two passwords do not match.';
+    $studentId = trim(post('student_id'));
+    $fullname  = trim(post('fullname'));
+    $email     = trim(post('email'));
+    $password  = post('password');
+    $confirm   = post('confirm_password');
 
-    if (!$errors && roll_is_active() && !roll_entry($old['student_id'])) {
-        $errors[] = 'That Student ID is not on the official voter list. Please contact the election committee.';
-    }
-
-    if (!$errors) {
-        try {
-            db()->prepare('INSERT INTO users (student_id, fullname, email, password, email_verified) VALUES (?, ?, ?, ?, 0)')
-                ->execute([$old['student_id'], $old['fullname'], $old['email'], password_hash($pass, PASSWORD_DEFAULT)]);
-            
-            $sent = false; 
-            flash('warning', 'Account created! Verification emails are currently disabled. Contact an administrator to activate your account, or log in.');
-            redirect('index.php');
-        } catch (PDOException $e) {
-    } catch (PDOException $e) {
-        if ($e->getCode() === '23000') {   // duplicate key
-            $errors[] = find_user($old['student_id'])
-                ? 'That Student ID is already registered.'
-                : 'That email is already registered.';
+    // 1. Enforce official @kld.edu.ph email domain
+    if (!is_kld_email($email)) {
+        $error = 'Only official @kld.edu.ph email addresses are allowed to register.';
+    } elseif ($password !== $confirm) {
+        $error = 'Passwords do not match.';
+    } elseif (strlen($password) < 6) {
+        $error = 'Password must be at least 6 characters long.';
+    } elseif (find_user($studentId)) {
+        $error = 'A user with this Student ID is already registered.';
+    } else {
+        // Verify voter roll if active
+        if (roll_is_active() && !roll_entry($studentId)) {
+            $error = 'Your Student ID is not listed in the official voter roll.';
         } else {
-            $errors[] = 'Could not save your account. Please try again.';
+            $hash = password_hash($password, PASSWORD_DEFAULT);
+            
+            try {
+                $stmt = db()->prepare('INSERT INTO users (student_id, fullname, email, password_hash, role, has_voted, is_active) VALUES (?, ?, ?, ?, ?, 0, 1)');
+                $stmt->execute([$studentId, $fullname, strtolower($email), $hash, 'student']);
+
+                log_action('registered', "User $studentId registered.");
+
+                // Auto-login newly registered user
+                $_SESSION['logged_in']  = true;
+                $_SESSION['student_id'] = $studentId;
+                $_SESSION['fullname']   = $fullname;
+                $_SESSION['role']       = 'student';
+
+                flash('success', 'Registration successful! Welcome to KLD Online Election.');
+                redirect('home.php');
+            } catch (Throwable $e) {
+                $error = 'Registration failed due to a system error. Please try again.';
+            }
         }
     }
 }
-}
 
-$title = 'Registration';
-$narrow = true;
+$title = 'Register';
 require 'header.php';
 ?>
 
-    <h1>Student Registration</h1>
-    <p>Create your election account</p>
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <h2 class="mb-3">Student Registration</h2>
+        <p class="text-muted">Register using your official <strong>@kld.edu.ph</strong> email address.</p>
 
-    <?php if ($errors): ?>
-        <div class="alert alert-danger mb-3">
-            <?php foreach ($errors as $err): ?><div><?= e($err) ?></div><?php endforeach; ?>
-        </div>
-    <?php endif; ?>
+        <?php if ($error): ?>
+            <div class="alert alert-danger"><?= e($error) ?></div>
+        <?php endif; ?>
 
-    <form action="register.php" method="post">
-        <?= csrf_field() ?>
+        <form action="register.php" method="post">
+            <?= csrf_field() ?>
 
-        <label class="form-label mt-2">Full Name</label>
-        <input class="form-control" type="text" name="fullname" value="<?= e($old['fullname']) ?>" maxlength="100" required>
+            <div class="mb-3">
+                <label class="form-label">Student ID</label>
+                <input type="text" name="student_id" class="form-control" placeholder="e.g. 2026-12345" value="<?= e(post('student_id')) ?>" required>
+            </div>
 
-        <label class="form-label mt-3">Student ID</label>
-        <input class="form-control" type="text" name="student_id" value="<?= e($old['student_id']) ?>" maxlength="20" required>
+            <div class="mb-3">
+                <label class="form-label">Full Name</label>
+                <input type="text" name="fullname" class="form-control" placeholder="First Name Last Name" value="<?= e(post('fullname')) ?>" required>
+            </div>
 
-        <label class="form-label mt-3">Email</label>
-        <input class="form-control" type="email" name="email" value="<?= e($old['email']) ?>" required>
+            <div class="mb-3">
+                <label class="form-label">KLD Email Address</label>
+                <input type="email" name="email" class="form-control" placeholder="student@kld.edu.ph" value="<?= e(post('email')) ?>" pattern="[a-zA-Z0-9._%+-]+@kld\.edu\.ph$" title="Please enter a valid @kld.edu.ph email address" required>
+            </div>
 
-        <label class="form-label mt-3">Password</label>
-        <input class="form-control" type="password" name="password" minlength="8" autocomplete="new-password" required>
-        <div class="form-text">At least 8 characters.</div>
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-control" required>
+            </div>
 
-        <label class="form-label mt-3">Confirm Password</label>
-        <input class="form-control" type="password" name="confirm_password" minlength="8" autocomplete="new-password" required>
+            <div class="mb-3">
+                <label class="form-label">Confirm Password</label>
+                <input type="password" name="confirm_password" class="form-control" required>
+            </div>
 
-        <button type="submit" class="btn btn-primary w-100 mt-4">Register</button>
-    </form>
+            <button type="submit" class="btn btn-primary w-100">Register Account</button>
+        </form>
 
-    <p class="mt-4 mb-0">Already have an account? <a href="index.php">Log in</a></p>
-
-<script>
-const pw = document.querySelector('[name="password"]');
-const cpw = document.querySelector('[name="confirm_password"]');
-function checkMatch() {
-    cpw.setCustomValidity(pw.value !== cpw.value ? 'Passwords do not match.' : '');
-}
-pw.addEventListener('input', checkMatch);
-cpw.addEventListener('input', checkMatch);
-</script>
+        <p class="mt-3 text-center small">
+            Already have an account? <a href="index.php">Log in here</a>
+        </p>
+    </div>
+</div>
 
 <?php require 'footer.php'; ?>
