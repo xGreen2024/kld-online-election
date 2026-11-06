@@ -45,7 +45,7 @@ if (is_post()) {
                 flash('success', 'Registration successful! Welcome to KLD Online Election.');
                 redirect('home.php');
             } catch (Throwable $e) {
-                $error = 'Registration failed due to a system error. Please try again.';
+                $error = 'Registration failed: ' . $e->getMessage();
             }
         }
     }
