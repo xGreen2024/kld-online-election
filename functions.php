@@ -444,4 +444,10 @@ function tally_votes(): array {
     return $out;
 }
 
+function is_kld_email(string $email): bool {
+    return (bool) preg_match('/^[a-zA-Z0-9._%+-]+@kld\.edu\.ph$/i', trim($email));
+}
+
 remember_login();
+
+
