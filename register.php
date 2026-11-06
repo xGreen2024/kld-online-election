@@ -30,25 +30,27 @@ if (is_post()) {
         } else {
             $hash = password_hash($password, PASSWORD_DEFAULT);
 
-try {
-    // Standard insertion covering student_id, fullname, email, and password
-    $stmt = db()->prepare('INSERT INTO users (student_id, fullname, email, password) VALUES (?, ?, ?, ?)');
-    $stmt->execute([$studentId, $fullname, strtolower($email), $hash]);
+            try {
+                // Standard insertion covering student_id, fullname, email, and password
+                $stmt = db()->prepare('INSERT INTO users (student_id, fullname, email, password) VALUES (?, ?, ?, ?)');
+                $stmt->execute([$studentId, $fullname, strtolower($email), $hash]);
 
-    log_action('registered', "User $studentId registered.");
+                log_action('registered', "User $studentId registered.");
 
-    // Auto-login newly registered user
-    $_SESSION['logged_in']  = true;
-    $_SESSION['student_id'] = $studentId;
-    $_SESSION['fullname']   = $fullname;
-    $_SESSION['role']       = 'student';
+                // Auto-login newly registered user
+                $_SESSION['logged_in']  = true;
+                $_SESSION['student_id'] = $studentId;
+                $_SESSION['fullname']   = $fullname;
+                $_SESSION['role']       = 'student';
 
-    flash('success', 'Registration successful! Welcome to KLD Online Election.');
-    redirect('home.php');
-} catch (Throwable $e) {
-        $error = 'Registration failed due to a system error. Please try again.';
-    }
+                flash('success', 'Registration successful! Welcome to KLD Online Election.');
+                redirect('home.php');
+            } catch (Throwable $e) {
+                $error = 'Registration failed due to a system error. Please try again.';
+            }
         }
+    }
+}
 
 $title = 'Register';
 require 'header.php';
