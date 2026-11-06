@@ -1,52 +1,56 @@
 <?php
 require_once __DIR__ . '/functions.php';
 
+if (is_logged_in()) redirect(home_for_role());
+
 $error = '';
-$sent = false;
+$success = '';
 
 if (is_post()) {
     csrf_check();
-    $email = post('email');
+    $email = trim(post('email'));
 
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $error = 'Please enter a valid email address.';
+    if (!is_kld_email($email)) {
+        $error = 'Only official @kld.edu.ph email addresses are recognized.';
     } else {
         if (send_reset_email($email)) {
-            $sent = true;
+            $success = 'If that account exists, a password reset link has been sent to your email address.';
         } else {
-            $error = 'Failed to send reset email. Please try again later.';
+            $error = 'Could not process password reset request. Please check your email address.';
         }
     }
 }
 
 $title = 'Forgot Password';
-$narrow = true;
 require 'header.php';
 ?>
 
-<h1>Forgot password</h1>
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <h2 class="mb-3">Forgot Password</h2>
+        <p class="text-muted">Enter your registered <strong>@kld.edu.ph</strong> email address to receive a password reset link.</p>
 
-<?php if ($sent): ?>
-    <div class="alert alert-success">If that email is registered, a reset link has been sent to it. The link works for one hour.</div>
-<?php else: ?>
-    <p>Enter the email you registered with and we'll send you a link to set a new password.</p>
+        <?php if ($error): ?>
+            <div class="alert alert-danger"><?= e($error) ?></div>
+        <?php endif; ?>
 
-    <?php if ($error): ?><div class="alert alert-danger"><?= e($error) ?></div><?php endif; ?>
+        <?php if ($success): ?>
+            <div class="alert alert-success"><?= e($success) ?></div>
+        <?php endif; ?>
 
-    <form action="forgot_password.php" method="post">
-        <?= csrf_field() ?>
-        <label class="form-label mt-2">Registered email</label>
-        <input class="form-control" type="email" name="email" autocomplete="email" required>
-        <button type="submit" class="btn btn-primary w-100 mt-4">Send reset link</button>
-    </form>
-<?php endif; ?>
+        <form action="forgot_password.php" method="post">
+            <?= csrf_field() ?>
+            <div class="mb-3">
+                <label class="form-label">KLD Email Address</label>
+                <input type="email" name="email" class="form-control" placeholder="student@kld.edu.ph" pattern="[a-zA-Z0-9._%+-]+@kld\.edu\.ph$" title="Please enter a valid @kld.edu.ph email address" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Send Reset Link</button>
+        </form>
 
-<div class="actions">
-    <?php if (is_logged_in()): ?>
-        <a href="home.php" class="btn btn-outline-primary">Back to dashboard</a>
-    <?php else: ?>
-        <a href="index.php" class="btn btn-outline-primary">Back to login</a>
-    <?php endif; ?>
+        <p class="mt-3 text-center small">
+            <a href="index.php">← Back to Login</a>
+        </p>
+    </div>
 </div>
 
 <?php require 'footer.php'; ?>
