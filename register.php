@@ -61,12 +61,12 @@ if (is_post()) {
                 $mail->Host       = 'smtp.gmail.com'; 
                 $mail->SMTPAuth   = true;
                 $mail->Username   = 'aaronbalba059@gmail.com';         // Your SMTP Email address
-                $mail->Password   = 'your-app-password';            // Your SMTP Password / App Password
+                $mail->Password   = 'gtvskowlzkqagaei';            // Your SMTP Password / App Password
                 $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
                 $mail->Port       = 587;
 
                 // Sender & Recipient
-                $mail->setFrom('your-email@gmail.com', 'KLD Online Election');
+                $mail->setFrom('aaronbalba059@gmail.com', 'KLD Online Election');
                 $mail->addAddress($email, $fullname);
 
                 // Verification Content
