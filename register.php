@@ -1,14 +1,6 @@
 <?php
 require_once __DIR__ . '/functions.php';
 
-// Include PHPMailer classes
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
-
-if (file_exists(__DIR__ . '/vendor/autoload.php')) {
-    require_once __DIR__ . '/vendor/autoload.php';
-}
-
 if (is_logged_in()) redirect(home_for_role());
 
 $error = '';
@@ -53,37 +45,49 @@ if (is_post()) {
                 $stmtToken = db()->prepare('INSERT INTO email_verifications (user_id, token_hash, expires_at) VALUES (?, ?, ?)');
                 $stmtToken->execute([$userId, $tokenHash, $expires]);
 
-                // 3. Send Verification Email via PHPMailer (Brevo SMTP)
-                $mail = new PHPMailer(true);
-                
-                // Server credentials for Brevo (EMAIL RELAY)
-                $mail->isSMTP();
-                $mail->Host       = 'smtp-relay.brevo.com';
-                $mail->SMTPAuth   = true;
-                $mail->Username   = getenv('BREVO_USER') ?: 'acbalba@kld.edu.ph'; 
-                $mail->Password   = getenv('BREVO_API_KEY'); 
-                $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS; // Change STARTTLS to SMTPS (SSL)
-                $mail->Port       = 465;                        // Change 587 to 465
-                $mail->Timeout    = 10;
-                // Sender & Recipient Details
-                $senderEmail = getenv('BREVO_USER') ?: 'aaronbalba059@gmail.com';
-                $mail->setFrom($senderEmail, 'KLD Online Election');
-                $mail->addAddress($email, $fullname); // Recipient address
-
-                // Verification Content
+                // 3. Send Email via Brevo REST API (HTTPS - Bypasses Render SMTP Blocks)
+                $apiKey = getenv('BREVO_API_KEY');
+                $senderEmail = getenv('BREVO_USER') ?: 'acbalba@kld.edu.ph';
                 $verifyLink = "https://kld-online-election.onrender.com/verify_email.php?token=" . urlencode($rawToken);
 
-                $mail->isHTML(true);
-                $mail->Subject = 'Verify Your KLD Election Account';
-                $mail->Body    = "
-                    <h3>Welcome to KLD Online Election, " . htmlspecialchars($fullname) . "!</h3>
-                    <p>Please click the button below to verify your email address and activate your account:</p>
-                    <p><a href='{$verifyLink}' style='background-color:#198754;color:#ffffff;padding:10px 15px;text-decoration:none;border-radius:5px;'>Verify Email Address</a></p>
-                    <p>Or copy and paste this link into your browser:<br><a href='{$verifyLink}'>{$verifyLink}</a></p>
-                    <br><p>This link expires in 24 hours.</p>
-                ";
+                $payload = [
+                    'sender' => [
+                        'name' => 'KLD Online Election',
+                        'email' => $senderEmail
+                    ],
+                    'to' => [
+                        [
+                            'email' => $email,
+                            'name'  => $fullname
+                        ]
+                    ],
+                    'subject' => 'Verify Your KLD Election Account',
+                    'htmlContent' => "
+                        <h3>Welcome to KLD Online Election, " . htmlspecialchars($fullname) . "!</h3>
+                        <p>Please click the button below to verify your email address and activate your account:</p>
+                        <p><a href='{$verifyLink}' style='background-color:#198754;color:#ffffff;padding:10px 15px;text-decoration:none;border-radius:5px;'>Verify Email Address</a></p>
+                        <p>Or copy and paste this link into your browser:<br><a href='{$verifyLink}'>{$verifyLink}</a></p>
+                        <br><p>This link expires in 24 hours.</p>
+                    "
+                ];
 
-                $mail->send();
+                $ch = curl_init('https://api.brevo.com/v3/smtp/email');
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'accept: application/json',
+                    'api-key: ' . $apiKey,
+                    'content-type: application/json'
+                ]);
+
+                $response = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+
+                if ($httpCode !== 201 && $httpCode !== 200) {
+                    throw new Exception("Brevo API error (Status $httpCode): " . $response);
+                }
 
                 log_action('registered', "User $studentId registered. Verification email sent.");
 
